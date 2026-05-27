@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useState } from "react";
-import { v4 as uuidv4 } from "uuid";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -21,7 +20,7 @@ export const TaskForm: React.FC<Props> = ({ onAdd }) => {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
-    const newTask: Task = { id: uuidv4(), title: title.trim(), completed: false };
+    const newTask: Task = { id: crypto.randomUUID(), title: title.trim(), completed: false };
     onAdd(newTask);
     setTitle("");
   };
