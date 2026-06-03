@@ -32,5 +32,17 @@ export const useTasks = () => {
     setTasks(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t));
   };
 
-  return { tasks, addTask, deleteTask, updateTask };
+  const clearCompleted = () => {
+    setTasks(prev => prev.filter(t => !t.completed));
+  };
+
+  const stats = {
+    total: tasks.length,
+    active: tasks.filter(t => !t.completed).length,
+    completed: tasks.filter(t => t.completed).length,
+    overdue: 0,
+    today: 0,
+  };
+
+  return { tasks, addTask, deleteTask, updateTask, clearCompleted, stats };
 };
