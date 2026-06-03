@@ -129,10 +129,3 @@ export const TaskList: React.FC = () => {
     </div>
   );
 };
-</dyad-command>
-
-<dyad-command type="restart"></dyad-command>
-<dyad-command type="refresh"></dyad-command>
-<dyad-chat-summary>Corrigi o TaskList para usar os contadores corretamente do hook useTasks.</dyad-chat-summary><dyad-command type="restart"></dyad-command>
-<dyad-command type="refresh"></dyad-command>
-<dyad-chat-summary>Finalizei a correção do TaskList.</dyad-chat-summary>
