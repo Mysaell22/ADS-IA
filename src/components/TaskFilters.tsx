@@ -1,1 +1,2 @@
-export default function TaskFilters() { return null; } 
+export function TaskFilters() { return null; }
+export default TaskFilters;

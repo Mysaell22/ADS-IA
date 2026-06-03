@@ -34,6 +34,15 @@ export const TaskList: React.FC = () => {
     categories,
   } = useTasks();
 
+  // Garantir que stats sempre tenha valores numéricos
+  const safeStats = {
+    total: stats?.total ?? 0,
+    active: stats?.active ?? 0,
+    completed: stats?.completed ?? 0,
+    overdue: stats?.overdue ?? 0,
+    today: stats?.today ?? 0,
+  };
+
   return (
     <div className="max-w-4xl mx-auto p-4 space-y-6">
       <div className="text-center space-y-2">
@@ -49,35 +58,35 @@ export const TaskList: React.FC = () => {
         <Card>
           <CardContent className="p-4 text-center">
             <ListTodo className="h-6 w-6 mx-auto mb-2 text-primary" />
-            <div className="text-2xl font-bold">{stats.total}</div>
+            <div className="text-2xl font-bold">{safeStats.total}</div>
             <div className="text-xs text-muted-foreground">Total</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Circle className="h-6 w-6 mx-auto mb-2 text-blue-500" />
-            <div className="text-2xl font-bold">{stats.active}</div>
+            <div className="text-2xl font-bold">{safeStats.active}</div>
             <div className="text-xs text-muted-foreground">Ativas</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <CheckCircle className="h-6 w-6 mx-auto mb-2 text-green-500" />
-            <div className="text-2xl font-bold">{stats.completed}</div>
+            <div className="text-2xl font-bold">{safeStats.completed}</div>
             <div className="text-xs text-muted-foreground">Completadas</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <AlertTriangle className="h-6 w-6 mx-auto mb-2 text-red-500" />
-            <div className="text-2xl font-bold">{stats.overdue}</div>
+            <div className="text-2xl font-bold">{safeStats.overdue}</div>
             <div className="text-xs text-muted-foreground">Atrasadas</div>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4 text-center">
             <Clock className="h-6 w-6 mx-auto mb-2 text-orange-500" />
-            <div className="text-2xl font-bold">{stats.today}</div>
+            <div className="text-2xl font-bold">{safeStats.today}</div>
             <div className="text-xs text-muted-foreground">Hoje</div>
           </CardContent>
         </Card>
@@ -96,7 +105,7 @@ export const TaskList: React.FC = () => {
             setSortBy={setSortBy}
             sortOrder={sortOrder}
             setSortOrder={setSortOrder}
-            stats={stats}
+            stats={safeStats}
             categories={categories}
             onClearCompleted={clearCompleted}
           />
