@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
 import Tasks from "./pages/Tasks";
+import { RequireAuth } from "@/components/RequireAuth";
 
 const queryClient = new QueryClient();
 
@@ -17,7 +18,14 @@ const App = () => (
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Index />} />
-          <Route path="/tasks" element={<Tasks />} />
+          <Route
+            path="/tasks"
+            element={
+              <RequireAuth>
+                <Tasks />
+              </RequireAuth>
+            }
+          />
           {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
           <Route path="*" element={<NotFound />} />
         </Routes>

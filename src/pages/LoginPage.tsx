@@ -1,5 +1,5 @@
 import React, { FormEvent, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/lib/supabase";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -8,9 +8,13 @@ import { showError, showSuccess } from "@/utils/toast";
 
 const LoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+
+  // Determine where to redirect after login
+  const from = location.state?.from?.pathname || "/";
 
   const handleLogin = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -36,7 +40,7 @@ const LoginPage = () => {
     }
 
     showSuccess("Login realizado com sucesso.");
-    navigate("/");
+    navigate(from, { replace: true });
   };
 
   return (
