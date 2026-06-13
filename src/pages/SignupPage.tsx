@@ -1,68 +1,93 @@
-import React, { useState } from 'react';
-import { supabase } from '@/supabase';
-import { Button, Input } from 'shadcn/ui';
-import { showSuccess, showError } from '@/utils/toast';
+import React, { FormEvent, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { supabase } from "@/lib/supabase";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { showError, showSuccess } from "@/utils/toast";
 
 const SignupPage = () => {
-  const [name, setName] = useState('');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const navigate = useNavigate();
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSignup = async () => {
-    if (!name || !email || !password) {
-      showError('Please fill all fields');
+  const handleSignup = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const nameValue = name.trim();
+    const emailValue = email.trim();
+
+    if (!nameValue || !emailValue || !password) {
+      showError("Preencha todos os campos.");
       return;
     }
-    
-    const { error } = await supabase.auth.signUp({ 
-      email, 
-      password, 
-      options: { 
-        name 
-      } 
+
+    setIsLoading(true);
+
+    const { error } = await supabase.auth.signUp({
+      email: emailValue,
+      password,
+      options: {
+        data: {
+          name: nameValue,
+        },
+      },
     });
-    if (error) showError('Signup failed');
-    else {
-      showSuccess('Account created successfully');
-      // Redirect to Login page
+
+    if (error) {
+      showError("Não foi possível criar a conta.");
+      setIsLoading(false);
+      return;
     }
+
+    showSuccess("Cadastro realizado com sucesso.");
+    navigate("/login");
   };
 
   return (
-    <div className="max-w-md mx-auto p-4">
-      <h1 className="text-2xl font-bold mb-4">Sign up</h1>
-      <form className="mb-6">
-        <Input 
-          type="text" 
-          value={name} 
-          onChange={(e) => setName(e.target.value)} 
-          placeholder="Name"
-          className="w-full mb-2"
-        />
-        <Input 
-          type="email" 
-          value={email} 
-          onChange={(e) => setEmail(e.target.value)} 
-          placeholder="Email"
-          className="w-full mb-2"
-        />
-        <Input 
-          type="password" 
-          value={password} 
-          onChange={(e) => setPassword(e.target.value)} 
-          placeholder="Password"
-          className="w-full mb-2"
-        />
-        <Button 
-          onClick={handleSignup} 
-          className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded"
-        >
-          Sign up
-        </Button>
-      </form>
-      <p className="text-sm text-gray-600 mt-2">
-        Already have an account? <a href="/login" className="text-blue-500 hover:underline">Login</a>
-      </p>
+    <div className="min-h-screen bg-slate-50 px-4 py-8">
+      <Card className="mx-auto w-full max-w-md shadow-sm">
+        <CardHeader>
+          <CardTitle>Criar conta</CardTitle>
+          <CardDescription>Faça seu cadastro para usar a lista de tarefas.</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSignup} className="space-y-4">
+            <Input
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              placeholder="Nome"
+              autoComplete="name"
+            />
+            <Input
+              type="email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              placeholder="E-mail"
+              autoComplete="email"
+            />
+            <Input
+              type="password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
+              placeholder="Senha"
+              autoComplete="new-password"
+            />
+            <Button type="submit" className="w-full" disabled={!name.trim() || !email.trim() || !password || isLoading}>
+              {isLoading ? "Criando conta..." : "Criar conta"}
+            </Button>
+          </form>
+
+          <p className="mt-4 text-center text-sm text-slate-600">
+            Já tem uma conta?{" "}
+            <a href="/login" className="font-medium text-indigo-600 hover:text-indigo-700">
+              Entrar
+            </a>
+          </p>
+        </CardContent>
+      </Card>
     </div>
   );
 };
