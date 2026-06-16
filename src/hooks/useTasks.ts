@@ -103,9 +103,15 @@ export const useTasks = () => {
     const { data, error } = await supabase
       .from("tarefas")
       .insert({
-        ...task,
+        title: task.title,
+        description: task.description,
+        priority: task.priority,
+        category: task.category,
+        tag: task.tag,
+        due_date: task.dueDate,
+        time_minutes: task.estimatedTime,
+        completed: task.completed ?? false,
         user_id: user.id,
-        // created_at será gerado automaticamente pelo Supabase
       })
       .select()
       .single();
@@ -135,8 +141,8 @@ export const useTasks = () => {
         priority: task.priority,
         category: task.category,
         tag: task.tag,
-        dueDate: task.dueDate,
-        estimatedTime: task.estimatedTime,
+        due_date: task.dueDate,
+        time_minutes: task.estimatedTime,
         completed: task.completed,
       })
       .eq("id", task.id)
