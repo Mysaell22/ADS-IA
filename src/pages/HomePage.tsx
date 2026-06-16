@@ -20,7 +20,7 @@ const HomePage = () => {
   const fetchTasks = async () => {
     setIsLoading(true);
 
-    const { data, error } = await supabase.from("tasks").select("*");
+    const { data, error } = await supabase.from("tarefas").select("*"); // ← CORRIGIDO: era "tasks"
 
     if (error) {
       showError("Falha ao carregar tarefas.");
@@ -45,7 +45,7 @@ const HomePage = () => {
     setIsLoading(true);
 
     const { data, error } = await supabase
-      .from("tasks")
+      .from("tarefas") // ← CORRIGIDO: era "tasks"
       .insert({ task: taskText })
       .select()
       .single();
@@ -74,7 +74,7 @@ const HomePage = () => {
     setIsLoading(true);
 
     const { data, error } = await supabase
-      .from("tasks")
+      .from("tarefas") // ← CORRIGIDO: era "tasks"
       .update({ task: taskText })
       .eq("id", task.id)
       .select()
@@ -96,7 +96,7 @@ const HomePage = () => {
   const handleDelete = async (taskId: Task["id"]) => {
     setIsLoading(true);
 
-    const { error } = await supabase.from("tasks").delete().eq("id", taskId);
+    const { error } = await supabase.from("tarefas").delete().eq("id", taskId); // ← CORRIGIDO: era "tasks"
 
     if (error) {
       showError("Falha ao excluir tarefa.");

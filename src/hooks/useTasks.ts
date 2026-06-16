@@ -55,7 +55,7 @@ export const useTasks = () => {
     }
     setIsLoading(true);
     const { data, error } = await supabase
-      .from("tasks")
+      .from("tarefas") // ← CORRIGIDO: era "tasks"
       .select("*")
       .eq("user_id", user.id)
       .order(sortBy, { ascending: sortOrder === "asc" });
@@ -84,7 +84,7 @@ export const useTasks = () => {
     }
     setIsLoading(true);
     const { data, error } = await supabase
-      .from("tasks")
+      .from("tarefas") // ← CORRIGIDO: era "tasks"
       .insert({ ...task, user_id: user.id })
       .select()
       .single();
@@ -103,7 +103,7 @@ export const useTasks = () => {
   const updateTask = async (task: Task) => {
     setIsLoading(true);
     const { data, error } = await supabase
-      .from("tasks")
+      .from("tarefas") // ← CORRIGIDO: era "tasks"
       .update({
         title: task.title,
         description: task.description,
@@ -131,7 +131,7 @@ export const useTasks = () => {
 
   const deleteTask = async (id: string) => {
     setIsLoading(true);
-    const { error } = await supabase.from("tasks").delete().eq("id", id);
+    const { error } = await supabase.from("tarefas").delete().eq("id", id); // ← CORRIGIDO: era "tasks"
     if (error) {
       showError("Falha ao excluir tarefa.");
       console.error("[deleteTask] Supabase error:", error);
@@ -148,7 +148,7 @@ export const useTasks = () => {
     const completedIds = tasks.filter(t => t.completed).map(t => t.id);
     if (!completedIds.length) return;
     setIsLoading(true);
-    const { error } = await supabase.from("tasks").delete().in("id", completedIds);
+    const { error } = await supabase.from("tarefas").delete().in("id", completedIds); // ← CORRIGIDO: era "tasks"
     if (error) {
       showError("Falha ao limpar concluídas.");
       console.error("[clearCompleted] Supabase error:", error);
