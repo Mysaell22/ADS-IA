@@ -75,7 +75,7 @@ export const useTasks = () => {
       .from("tarefas")
       .select("*")
       .eq("user_id", user.id)
-      .order(sortBy, { ascending: sortOrder === "asc" });
+      .order("created_at", { ascending: sortOrder === "asc" });
 
     if (error) {
       // Log detalhado para depuração      console.error("[fetchTasks] Supabase error:", error);
