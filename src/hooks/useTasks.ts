@@ -78,7 +78,7 @@ export const useTasks = () => {
       .order("created_at", { ascending: sortOrder === "asc" });
 
     if (error) {
-      // Log detalhado para depuração      console.error("[fetchTasks] Supabase error:", error);
+      console.error("[fetchTasks] Supabase error:", error);
       showError("Falha ao carregar tarefas.");
       setIsLoading(false);
       return;
@@ -94,7 +94,7 @@ export const useTasks = () => {
   // -----------------------------------------------------------------
   // INSERT – cria uma nova tarefa
   // -----------------------------------------------------------------
-  const addTask = async (task: Omit<Task, "id" | "user_id">) => {
+  const addTask = async (task: Omit<Task, "id" | "user_id" | "createdAt">) => {
     if (!user) {
       showError("Você precisa estar logado para adicionar tarefas.");
       return;
@@ -105,8 +105,7 @@ export const useTasks = () => {
       .insert({
         ...task,
         user_id: user.id,
-        // Supabase pode preencher `created_at` automaticamente;
-        // se não, pode usar supabase.fn.now()
+        // created_at será gerado automaticamente pelo Supabase
       })
       .select()
       .single();
@@ -123,7 +122,8 @@ export const useTasks = () => {
   };
 
   // -----------------------------------------------------------------
-  // UPDATE – edita uma tarefa existente  // -----------------------------------------------------------------
+  // UPDATE – edita uma tarefa existente
+  // -----------------------------------------------------------------
   const updateTask = async (task: Task) => {
     if (!user) return;
     setIsLoading(true);
