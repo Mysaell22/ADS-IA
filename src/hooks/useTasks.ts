@@ -62,6 +62,7 @@ export const useTasks = () => {
 
     if (error) {
       showError("Falha ao carregar tarefas.");
+      console.error("[fetchTasks] Supabase error:", error);
       setIsLoading(false);
       return;
     }
@@ -77,7 +78,10 @@ export const useTasks = () => {
   // CRUD helpers
   // -----------------------------------------------------------------
   const addTask = async (task: Omit<Task, "id" | "user_id">) => {
-    if (!user) return;
+    if (!user) {
+      showError("Você precisa estar logado para adicionar tarefas.");
+      return;
+    }
     setIsLoading(true);
     const { data, error } = await supabase
       .from("tasks")
@@ -87,6 +91,7 @@ export const useTasks = () => {
 
     if (error || !data) {
       showError("Falha ao adicionar tarefa.");
+      console.error("[addTask] Supabase error:", error);
       setIsLoading(false);
       return;
     }
@@ -95,21 +100,31 @@ export const useTasks = () => {
     setIsLoading(false);
   };
 
-  const updateTask = async (id: string, updates: Partial<Task>) => {
+  const updateTask = async (task: Task) => {
     setIsLoading(true);
     const { data, error } = await supabase
       .from("tasks")
-      .update(updates)
-      .eq("id", id)
+      .update({
+        title: task.title,
+        description: task.description,
+        completed: task.completed,
+        priority: task.priority,
+        category: task.category,
+        dueDate: task.dueDate,
+        tags: task.tags,
+        estimatedTime: task.estimatedTime,
+      })
+      .eq("id", task.id)
       .select()
       .single();
 
     if (error || !data) {
       showError("Falha ao atualizar tarefa.");
+      console.error("[updateTask] Supabase error:", error);
       setIsLoading(false);
       return;
     }
-    setTasks(tasks.map(t => (t.id === id ? data : t)));
+    setTasks(tasks.map(t => (t.id === task.id ? data : t)));
     showSuccess("Tarefa atualizada.");
     setIsLoading(false);
   };
@@ -119,6 +134,7 @@ export const useTasks = () => {
     const { error } = await supabase.from("tasks").delete().eq("id", id);
     if (error) {
       showError("Falha ao excluir tarefa.");
+      console.error("[deleteTask] Supabase error:", error);
       setIsLoading(false);
       return;
     }
@@ -135,6 +151,7 @@ export const useTasks = () => {
     const { error } = await supabase.from("tasks").delete().in("id", completedIds);
     if (error) {
       showError("Falha ao limpar concluídas.");
+      console.error("[clearCompleted] Supabase error:", error);
       setIsLoading(false);
       return;
     }
@@ -149,10 +166,8 @@ export const useTasks = () => {
   const now = new Date();
 
   const filteredTasks = tasks.filter(t => {
-    // search
     if (searchTerm && !t.title.toLowerCase().includes(searchTerm.toLowerCase())) return false;
 
-    // status filter
     if (filter === "active" && t.completed) return false;
     if (filter === "completed" && !t.completed) return false;
     if (filter === "overdue") {
@@ -168,7 +183,7 @@ export const useTasks = () => {
         d.getDate() === now.getDate()
       );
     }
-    return true; // "all"
+    return true;
   });
 
   // -----------------------------------------------------------------
