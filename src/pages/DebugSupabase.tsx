@@ -1,1 +1,24 @@
-"use client"; import { useState } from "react"; import { supabase } from "@/lib/supabase"; import { Button, Input } from "@/components/ui/input"; import { showError, showSuccess } from "@/utils/toast"; const DebugSupabase = () => { const [email, setEmail] = useState(""); const [password, setPassword] = useState(""); const [status, setStatus] = useState<string>(""); const testAuth = async () => { if (!email || !password) { setStatus("Preencha e‑mail e senha."); return; } setStatus("Testando..."); try { const { data, error } = await supabase.auth.signUp({ email, password }); if (error) { setStatus(`Erro: ${error.message}`); showError(error.message); console.error("Supabase sign‑up error:", error); } else { setStatus("Sucesso! Verifique seu e‑mail."); showSuccess("Cadastro iniciado."); console.log("Sign‑up data:", data); } } catch (e) { setStatus(`Falha inesperada: ${e}`); showError("Erro inesperado."); console.error(e); } }; return ( <div className="p-8"> <h2 className="text-xl mb-4">Teste Supabase</h2> <Input placeholder="E‑mail" value={email} onChange={(e) => setEmail(e.target.value)} className="mb-2 w-full" /> <Input type="password" placeholder="Senha" value={password} onChange={(e) => setPassword(e.target.value)} className="mb-4 w-full" /> <Button type="button" onClick={testAuth} className="w-full"> Testar conexão </Button> <p className="mt-4 text-sm">{status}</p> </div> ); }; export default DebugSupabase;
+import { useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+
+const DebugSupabase = () => {
+  const [status, setStatus] = useState("");
+
+  const testConnection = async () => {
+    setStatus("Testando...");
+    const { error } = await supabase.auth.getSession();
+    setStatus(error ? `Erro: ${error.message}` : "Conexão estabelecida.");
+  };
+
+  return (
+    <div className="mx-auto max-w-md p-8">
+      <h2 className="mb-4 text-xl font-semibold">Teste do Supabase</h2>
+      <Input readOnly value={status} placeholder="Status da conexão" className="mb-4" />
+      <Button type="button" onClick={() => void testConnection()} className="w-full">Testar conexão</Button>
+    </div>
+  );
+};
+
+export default DebugSupabase;

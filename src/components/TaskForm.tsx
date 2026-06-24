@@ -16,9 +16,11 @@ import { Calendar } from "@/components/ui/calendar";
 import { CalendarIcon, Tag, X } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
+import { Badge } from "@/components/ui/badge";
+import { Task, NewTask } from "@/types/task";
 
 type Props = {
-  onAdd: (task: Task) => void;
+  onAdd?: (task: NewTask) => Promise<boolean>;
   initialTask?: Task;
   onSubmit?: (task: Task) => void;
 };
@@ -35,27 +37,37 @@ export const TaskForm: React.FC<Props> = ({ onAdd, initialTask, onSubmit }) => {
   );
   const [newTag, setNewTag] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) return;
 
-    const task: Task = {
-      id: initialTask?.id || crypto.randomUUID(),
+    const values = {
       title: title.trim(),
       description: description.trim() || undefined,
-      completed: initialTask?.completed || false,
+      completed: initialTask?.completed ?? false,
       dueDate: dueDate?.toISOString(),
       priority,
       category: category || undefined,
       tags: tags.length > 0 ? tags : undefined,
       estimatedTime: estimatedTime ? parseInt(estimatedTime) : undefined,
-      createdAt: initialTask?.createdAt || new Date().toISOString(),
     };
 
-    if (onSubmit) {
-      onSubmit(task);
-    } else {
-      onAdd(task);
+    if (initialTask && onSubmit) {
+      onSubmit({
+        ...values,
+        id: initialTask.id,
+        createdAt: initialTask.createdAt,
+      });
+    } else if (onAdd) {
+      const success = await onAdd(values);
+      if (success) {
+        setTitle("");
+        setDescription("");
+        setCategory("");
+        setTags([]);
+        setEstimatedTime("");
+        setDueDate(undefined);
+      }
     }
   };
 

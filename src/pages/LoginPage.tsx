@@ -34,7 +34,7 @@ const LoginPage = () => {
     });
 
     if (error) {
-      showError("Não foi possível entrar. Verifique suas credenciais.");
+      showError(error.message || "Não foi possível entrar. Verifique suas credenciais.");
       setIsLoading(false);
       return;
     }

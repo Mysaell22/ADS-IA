@@ -1,281 +1,214 @@
-"use client";
-
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
+import type { NewTask, Task } from "@/types/task";
 
-/**
- * Colunas da tabela `tarefas` no Supabase:
- * - id (uuid)
- * - user_id (uuid)
- * - title (text)
- * - description (text)
- * - priority (text) – values: "alta" | "media" | "baixa"
- * - category (text)
- * - tag (text) – pode ser armazenado como string simples (não array)
- * - due_date (timestamp with time zone)
- * - time_minutes (integer)
- * - completed (boolean)
- * - created_at (timestamp)
- */
-export interface Task {
+export type TaskFilter = "all" | "active" | "completed" | "overdue" | "today";
+
+type DatabaseTask = {
   id: string;
-  user_id: string;
   title: string;
-  description?: string;
-  priority?: "alta" | "media" | "baixa";
-  category?: string;
-  tag?: string; // se for um único tag; se houver múltiplos, ajuste no front‑end
-  dueDate?: string; // ISO string
-  estimatedTime?: number; // time_minutes
-  completed: boolean;
-  createdAt: string;
-}
+  description: string | null;
+  priority: Task["priority"] | null;
+  category: string | null;
+  tag: string | null;
+  due_date: string | null;
+  time_minutes: number | null;
+  completed: boolean | null;
+  created_at: string;
+};
 
-/** Filtros aceitos */
-type Filter = "all" | "active" | "completed" | "overdue" | "today";
+const fromDatabase = (row: DatabaseTask): Task => ({
+  id: row.id,
+  title: row.title,
+  description: row.description || undefined,
+  priority: row.priority || undefined,
+  category: row.category || undefined,
+  tags: row.tag
+    ? String(row.tag).split(",").map((tag) => tag.trim()).filter(Boolean)
+    : undefined,
+  dueDate: row.due_date || undefined,
+  estimatedTime: row.time_minutes ?? undefined,
+  completed: Boolean(row.completed),
+  createdAt: row.created_at,
+});
+
+const toDatabase = (task: NewTask | Task) => ({
+  title: task.title,
+  description: task.description || null,
+  priority: task.priority || null,
+  category: task.category || null,
+  tag: task.tags?.join(", ") || null,
+  due_date: task.dueDate || null,
+  time_minutes: task.estimatedTime ?? null,
+  completed: task.completed,
+});
 
 export const useTasks = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<TaskFilter>("all");
   const [searchTerm, setSearchTerm] = useState("");
   const [sortBy, setSortBy] = useState<"dueDate" | "priority" | "createdAt">("createdAt");
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
   const [isLoading, setIsLoading] = useState(false);
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
 
-  // -----------------------------------------------------------------
-  // Auth – garante que o usuário está logado antes de acessar dados
-  // -----------------------------------------------------------------
   useEffect(() => {
-    const loadUser = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      setUser(user);
-    };
-    loadUser();
-
+    void supabase.auth.getUser().then(({ data }) => setUser(data.user));
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
-        setUser(session?.user ?? null);
-      },
+      (_event, session) => setUser(session?.user ?? null),
     );
     return () => subscription.unsubscribe();
   }, []);
 
-  // -----------------------------------------------------------------
-  // Fetch tasks (only when a user is logged in)
-  // -----------------------------------------------------------------
-  const fetchTasks = async () => {
+  const fetchTasks = useCallback(async () => {
     if (!user) {
       setTasks([]);
       return;
     }
+
     setIsLoading(true);
     const { data, error } = await supabase
       .from("tarefas")
       .select("*")
       .eq("user_id", user.id)
-      .order("created_at", { ascending: sortOrder === "asc" });
+      .order("created_at", { ascending: false });
+    setIsLoading(false);
 
     if (error) {
-      console.error("[fetchTasks] Supabase error:", error);
+      console.error("[fetchTasks]", error);
       showError("Falha ao carregar tarefas.");
-      setIsLoading(false);
       return;
     }
-    setTasks(data ?? []);
-    setIsLoading(false);
-  };
+    setTasks(((data ?? []) as DatabaseTask[]).map(fromDatabase));
+  }, [user]);
 
   useEffect(() => {
     void fetchTasks();
-  }, [user, sortBy, sortOrder]);
+  }, [fetchTasks]);
 
-  // -----------------------------------------------------------------
-  // INSERT – cria uma nova tarefa
-  // -----------------------------------------------------------------
-  const addTask = async (task: Omit<Task, "id" | "user_id" | "createdAt">) => {
+  const addTask = async (task: NewTask) => {
     if (!user) {
-      showError("Você precisa estar logado para adicionar tarefas.");
-      return;
+      showError("Você precisa estar conectado para adicionar tarefas.");
+      return false;
     }
     setIsLoading(true);
     const { data, error } = await supabase
       .from("tarefas")
-      .insert({
-        title: task.title,
-        description: task.description,
-        priority: task.priority,
-        category: task.category,
-        tag: task.tag,
-        due_date: task.dueDate,
-        time_minutes: task.estimatedTime,
-        completed: task.completed ?? false,
-        user_id: user.id,
-      })
+      .insert({ ...toDatabase(task), user_id: user.id })
       .select()
       .single();
+    setIsLoading(false);
 
     if (error || !data) {
-      console.error("[addTask] Supabase error:", error);
+      console.error("[addTask]", error);
       showError("Falha ao adicionar tarefa.");
-      setIsLoading(false);
-      return;
+      return false;
     }
-    setTasks([data, ...tasks]);
+    setTasks((current) => [fromDatabase(data as DatabaseTask), ...current]);
     showSuccess("Tarefa adicionada.");
-    setIsLoading(false);
+    return true;
   };
 
-  // -----------------------------------------------------------------
-  // UPDATE – edita uma tarefa existente
-  // -----------------------------------------------------------------
   const updateTask = async (task: Task) => {
-    if (!user) return;
+    if (!user) return false;
     setIsLoading(true);
     const { data, error } = await supabase
       .from("tarefas")
-      .update({
-        title: task.title,
-        description: task.description,
-        priority: task.priority,
-        category: task.category,
-        tag: task.tag,
-        due_date: task.dueDate,
-        time_minutes: task.estimatedTime,
-        completed: task.completed,
-      })
+      .update(toDatabase(task))
       .eq("id", task.id)
+      .eq("user_id", user.id)
       .select()
       .single();
+    setIsLoading(false);
 
     if (error || !data) {
-      console.error("[updateTask] Supabase error:", error);
+      console.error("[updateTask]", error);
       showError("Falha ao atualizar tarefa.");
-      setIsLoading(false);
-      return;
+      return false;
     }
-    setTasks(tasks.map((t) => (t.id === task.id ? data : t)));
+    const updated = fromDatabase(data as DatabaseTask);
+    setTasks((current) => current.map((item) => item.id === task.id ? updated : item));
     showSuccess("Tarefa atualizada.");
-    setIsLoading(false);
+    return true;
   };
 
-  // -----------------------------------------------------------------
-  // DELETE – remove uma tarefa
-  // -----------------------------------------------------------------
   const deleteTask = async (id: string) => {
-    if (!user) return;
-    setIsLoading(true);
-    const { error } = await supabase.from("tarefas").delete().eq("id", id);
-    if (error) {
-      console.error("[deleteTask] Supabase error:", error);
-      showError("Falha ao excluir tarefa.");
-      setIsLoading(false);
-      return;
-    }
-    setTasks(tasks.filter((t) => t.id !== id));
-    showSuccess("Tarefa excluída.");
-    setIsLoading(false);
-  };
-
-  // -----------------------------------------------------------------
-  // DELETE multiple completed tasks
-  // -----------------------------------------------------------------
-  const clearCompleted = async () => {
-    if (!user) return;
-    const completedIds = tasks.filter((t) => t.completed).map((t) => t.id);
-    if (!completedIds.length) return;
+    if (!user) return false;
     setIsLoading(true);
     const { error } = await supabase
       .from("tarefas")
       .delete()
-      .in("id", completedIds);
-    if (error) {
-      console.error("[clearCompleted] Supabase error:", error);
-      showError("Falha ao limpar concluídas.");
-      setIsLoading(false);
-      return;
-    }
-    setTasks(tasks.filter((t) => !t.completed));
-    showSuccess("Concluídas removidas.");
+      .eq("id", id)
+      .eq("user_id", user.id);
     setIsLoading(false);
+
+    if (error) {
+      console.error("[deleteTask]", error);
+      showError("Falha ao excluir tarefa.");
+      return false;
+    }
+    setTasks((current) => current.filter((item) => item.id !== id));
+    showSuccess("Tarefa excluída.");
+    return true;
   };
 
-  // -----------------------------------------------------------------  // FILTERING LOGIC
-  // -----------------------------------------------------------------
-  const now = new Date();
+  const clearCompleted = async () => {
+    if (!user) return false;
+    const completedIds = tasks.filter((task) => task.completed).map((task) => task.id);
+    if (!completedIds.length) return true;
+    setIsLoading(true);
+    const { error } = await supabase
+      .from("tarefas")
+      .delete()
+      .eq("user_id", user.id)
+      .in("id", completedIds);
+    setIsLoading(false);
 
-  const filteredTasks = tasks.filter((t) => {
-    // SEARCH
-    if (searchTerm && !t.title.toLowerCase().includes(searchTerm.toLowerCase()))
+    if (error) {
+      console.error("[clearCompleted]", error);
+      showError("Falha ao limpar tarefas concluídas.");
       return false;
-
-    // STATUS FILTERS
-    if (filter === "active" && t.completed) return false;
-    if (filter === "completed" && !t.completed) return false;
-
-    if (filter === "overdue") {
-      if (!t.dueDate) return false;
-      return new Date(t.dueDate) < now && !t.completed;
     }
+    setTasks((current) => current.filter((task) => !task.completed));
+    showSuccess("Tarefas concluídas removidas.");
+    return true;
+  };
 
-    if (filter === "today") {
-      if (!t.dueDate) return false;
-      const d = new Date(t.dueDate);
-      return (
-        d.getFullYear() === now.getFullYear() &&
-        d.getMonth() === now.getMonth() &&
-        d.getDate() === now.getDate()
-      );
-    }
+  const visibleTasks = useMemo(() => {
+    const now = new Date();
+    const priorityWeight = { alta: 3, media: 2, baixa: 1 } as const;
+    return tasks
+      .filter((task) => {
+        if (searchTerm && !`${task.title} ${task.description || ""}`.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+        if (filter === "active") return !task.completed;
+        if (filter === "completed") return task.completed;
+        if (filter === "overdue") return Boolean(task.dueDate && new Date(task.dueDate) < now && !task.completed);
+        if (filter === "today") return Boolean(task.dueDate && new Date(task.dueDate).toDateString() === now.toDateString());
+        return true;
+      })
+      .sort((a, b) => {
+        let comparison = 0;
+        if (sortBy === "priority") comparison = (priorityWeight[a.priority || "baixa"] - priorityWeight[b.priority || "baixa"]);
+        else comparison = new Date(a[sortBy] || 0).getTime() - new Date(b[sortBy] || 0).getTime();
+        return sortOrder === "asc" ? comparison : -comparison;
+      });
+  }, [tasks, filter, searchTerm, sortBy, sortOrder]);
 
-    return true; // "all"
-  });
-
-  // -----------------------------------------------------------------
-  // STATISTICS
-  // -----------------------------------------------------------------
   const stats = {
     total: tasks.length,
-    active: tasks.filter((t) => !t.completed).length,
-    completed: tasks.filter((t) => t.completed).length,
-    overdue: tasks.filter(
-      (t) =>
-        t.dueDate && new Date(t.dueDate) < now && !t.completed,
-    ).length,
-    today: tasks.filter((t) => {
-      if (!t.dueDate) return false;
-      const d = new Date(t.dueDate);
-      return (
-        d.getFullYear() === now.getFullYear() &&
-        d.getMonth() === now.getMonth() &&
-        d.getDate() === now.getDate()
-      );
-    }).length,
+    active: tasks.filter((task) => !task.completed).length,
+    completed: tasks.filter((task) => task.completed).length,
+    overdue: tasks.filter((task) => task.dueDate && new Date(task.dueDate) < new Date() && !task.completed).length,
+    today: tasks.filter((task) => task.dueDate && new Date(task.dueDate).toDateString() === new Date().toDateString()).length,
   };
 
-  // Deduce distinct categories (use the `category` column)
-  const categories = [
-    ...new Set(tasks.map((t) => t.category).filter(Boolean)),
-  ] as string[];
-
   return {
-    tasks: filteredTasks,
-    filter,
-    setFilter,
-    searchTerm,
-    setSearchTerm,
-    sortBy,
-    setSortBy,
-    sortOrder,
-    setSortOrder,
-    addTask,
-    updateTask,
-    deleteTask,
-    clearCompleted,
-    stats,
-    categories,
-    isLoading,
-    refetch: fetchTasks,
+    tasks: visibleTasks, filter, setFilter, searchTerm, setSearchTerm,
+    sortBy, setSortBy, sortOrder, setSortOrder, addTask, updateTask,
+    deleteTask, clearCompleted, stats,
+    categories: [...new Set(tasks.map((task) => task.category).filter(Boolean))] as string[],
+    isLoading, refetch: fetchTasks,
   };
 };

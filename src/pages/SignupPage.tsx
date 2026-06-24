@@ -26,7 +26,7 @@ const SignupPage = () => {
 
     setIsLoading(true);
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email: emailValue,
       password,
       options: {
@@ -37,13 +37,18 @@ const SignupPage = () => {
     });
 
     if (error) {
-      showError("Não foi possível criar a conta.");
+      showError(error.message || "Não foi possível criar a conta.");
       setIsLoading(false);
       return;
     }
 
-    showSuccess("Cadastro realizado com sucesso.");
-    navigate("/login");
+    if (data.session) {
+      showSuccess("Cadastro realizado. Você já está conectado.");
+      navigate("/tasks", { replace: true });
+    } else {
+      showSuccess("Cadastro realizado. Confirme o e-mail antes de entrar.");
+      navigate("/login", { replace: true });
+    }
   };
 
   return (
