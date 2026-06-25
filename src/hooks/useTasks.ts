@@ -4,7 +4,7 @@ import { supabase } from "@/lib/supabase";
 import { showError, showSuccess } from "@/utils/toast";
 import type { NewTask, Task } from "@/types/task";
 
-export type TaskFilter = "all" | "active" | "completed" | "overdue" | "today";
+export type TaskFilter = "all" | "active" | "completed" | "overdue" | "today" | "deleted";
 
 type DatabaseTask = {
   id: string;
@@ -16,6 +16,7 @@ type DatabaseTask = {
   due_date: string | null;
   time_minutes: number | null;
   completed: boolean | null;
+  deleted_at: string | null;
   created_at: string;
 };
 
@@ -31,6 +32,7 @@ const fromDatabase = (row: DatabaseTask): Task => ({
   dueDate: row.due_date || undefined,
   estimatedTime: row.time_minutes ?? undefined,
   completed: Boolean(row.completed),
+  deletedAt: row.deleted_at || undefined,
   createdAt: row.created_at,
 });
 
@@ -43,6 +45,7 @@ const toDatabase = (task: NewTask | Task) => ({
   due_date: task.dueDate || null,
   time_minutes: task.estimatedTime ?? null,
   completed: task.completed,
+  deleted_at: "deletedAt" in task ? task.deletedAt || null : null,
 });
 
 export const useTasks = () => {
@@ -136,32 +139,60 @@ export const useTasks = () => {
 
   const deleteTask = async (id: string) => {
     if (!user) return false;
+    const deletedAt = new Date().toISOString();
     setIsLoading(true);
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("tarefas")
-      .delete()
+      .update({ deleted_at: deletedAt })
       .eq("id", id)
-      .eq("user_id", user.id);
+      .eq("user_id", user.id)
+      .select()
+      .single();
     setIsLoading(false);
 
-    if (error) {
+    if (error || !data) {
       console.error("[deleteTask]", error);
       showError("Falha ao excluir tarefa.");
       return false;
     }
-    setTasks((current) => current.filter((item) => item.id !== id));
-    showSuccess("Tarefa excluída.");
+    const updated = fromDatabase(data as DatabaseTask);
+    setTasks((current) => current.map((item) => item.id === id ? updated : item));
+    showSuccess("Tarefa movida para a lixeira.");
+    return true;
+  };
+
+  const restoreTask = async (id: string) => {
+    if (!user) return false;
+    setIsLoading(true);
+    const { data, error } = await supabase
+      .from("tarefas")
+      .update({ deleted_at: null })
+      .eq("id", id)
+      .eq("user_id", user.id)
+      .select()
+      .single();
+    setIsLoading(false);
+
+    if (error || !data) {
+      console.error("[restoreTask]", error);
+      showError("Falha ao restaurar tarefa.");
+      return false;
+    }
+    const updated = fromDatabase(data as DatabaseTask);
+    setTasks((current) => current.map((item) => item.id === id ? updated : item));
+    showSuccess("Tarefa restaurada para a lista ativa.");
     return true;
   };
 
   const clearCompleted = async () => {
     if (!user) return false;
-    const completedIds = tasks.filter((task) => task.completed).map((task) => task.id);
+    const completedIds = tasks.filter((task) => task.completed && !task.deletedAt).map((task) => task.id);
     if (!completedIds.length) return true;
+    const deletedAt = new Date().toISOString();
     setIsLoading(true);
     const { error } = await supabase
       .from("tarefas")
-      .delete()
+      .update({ deleted_at: deletedAt })
       .eq("user_id", user.id)
       .in("id", completedIds);
     setIsLoading(false);
@@ -171,8 +202,8 @@ export const useTasks = () => {
       showError("Falha ao limpar tarefas concluídas.");
       return false;
     }
-    setTasks((current) => current.filter((task) => !task.completed));
-    showSuccess("Tarefas concluídas removidas.");
+    setTasks((current) => current.map((task) => completedIds.includes(task.id) ? { ...task, deletedAt } : task));
+    showSuccess("Tarefas concluídas movidas para a lixeira.");
     return true;
   };
 
@@ -182,6 +213,8 @@ export const useTasks = () => {
     return tasks
       .filter((task) => {
         if (searchTerm && !`${task.title} ${task.description || ""}`.toLowerCase().includes(searchTerm.toLowerCase())) return false;
+        if (filter === "deleted") return Boolean(task.deletedAt);
+        if (task.deletedAt) return false;
         if (filter === "active") return !task.completed;
         if (filter === "completed") return task.completed;
         if (filter === "overdue") return Boolean(task.dueDate && new Date(task.dueDate) < now && !task.completed);
@@ -190,25 +223,28 @@ export const useTasks = () => {
       })
       .sort((a, b) => {
         let comparison = 0;
-        if (sortBy === "priority") comparison = (priorityWeight[a.priority || "baixa"] - priorityWeight[b.priority || "baixa"]);
+        if (sortBy === "priority") comparison = priorityWeight[a.priority || "baixa"] - priorityWeight[b.priority || "baixa"];
         else comparison = new Date(a[sortBy] || 0).getTime() - new Date(b[sortBy] || 0).getTime();
         return sortOrder === "asc" ? comparison : -comparison;
       });
   }, [tasks, filter, searchTerm, sortBy, sortOrder]);
 
+  const activeTasks = tasks.filter((task) => !task.deletedAt);
+
   const stats = {
-    total: tasks.length,
-    active: tasks.filter((task) => !task.completed).length,
-    completed: tasks.filter((task) => task.completed).length,
-    overdue: tasks.filter((task) => task.dueDate && new Date(task.dueDate) < new Date() && !task.completed).length,
-    today: tasks.filter((task) => task.dueDate && new Date(task.dueDate).toDateString() === new Date().toDateString()).length,
+    total: activeTasks.length,
+    active: activeTasks.filter((task) => !task.completed).length,
+    completed: activeTasks.filter((task) => task.completed).length,
+    overdue: activeTasks.filter((task) => task.dueDate && new Date(task.dueDate) < new Date() && !task.completed).length,
+    today: activeTasks.filter((task) => task.dueDate && new Date(task.dueDate).toDateString() === new Date().toDateString()).length,
+    deleted: tasks.filter((task) => task.deletedAt).length,
   };
 
   return {
     tasks: visibleTasks, filter, setFilter, searchTerm, setSearchTerm,
     sortBy, setSortBy, sortOrder, setSortOrder, addTask, updateTask,
-    deleteTask, clearCompleted, stats,
-    categories: [...new Set(tasks.map((task) => task.category).filter(Boolean))] as string[],
+    deleteTask, restoreTask, clearCompleted, stats,
+    categories: [...new Set(activeTasks.map((task) => task.category).filter(Boolean))] as string[],
     isLoading, refetch: fetchTasks,
   };
 };

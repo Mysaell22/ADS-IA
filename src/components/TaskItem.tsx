@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { format, isAfter, isToday, isYesterday } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { Calendar, Clock, Edit, Tag, Trash2 } from "lucide-react";
+import { Calendar, Clock, Edit, RotateCcw, Tag, Trash2 } from "lucide-react";
 import { TaskForm } from "./TaskForm";
 import type { Task } from "@/types/task";
 import { Button } from "@/components/ui/button";
@@ -17,12 +17,14 @@ type Props = {
   task: Task;
   onUpdate: (task: Task) => Promise<boolean>;
   onDelete: (id: string) => Promise<boolean>;
+  onRestore: (id: string) => Promise<boolean>;
 };
 
-export const TaskItem = ({ task, onUpdate, onDelete }: Props) => {
+export const TaskItem = ({ task, onUpdate, onDelete, onRestore }: Props) => {
   const [isEditing, setIsEditing] = useState(false);
   const [pendingEdit, setPendingEdit] = useState<Task | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [confirmRestore, setConfirmRestore] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const confirmEdit = async () => {
@@ -43,6 +45,13 @@ export const TaskItem = ({ task, onUpdate, onDelete }: Props) => {
     if (success) setConfirmDelete(false);
   };
 
+  const confirmRestoreTask = async () => {
+    setIsSubmitting(true);
+    const success = await onRestore(task.id);
+    setIsSubmitting(false);
+    if (success) setConfirmRestore(false);
+  };
+
   const dueStatus = (() => {
     if (!task.dueDate) return null;
     const dueDate = new Date(task.dueDate);
@@ -60,25 +69,29 @@ export const TaskItem = ({ task, onUpdate, onDelete }: Props) => {
     baixa: "border-l-green-500",
   }[task.priority || "media"];
 
+  const isDeleted = Boolean(task.deletedAt);
+
   return (
     <>
-      <Card className={`border-l-4 ${priorityBorder} transition-shadow ${task.completed ? "opacity-60" : "hover:shadow-md"}`}>
+      <Card className={`border-l-4 ${priorityBorder} transition-shadow ${task.completed || isDeleted ? "opacity-60" : "hover:shadow-md"}`}>
         <CardContent className="p-4">
           <div className="flex items-start justify-between gap-3">
             <div className="flex min-w-0 flex-1 items-start gap-3">
               <Checkbox
                 checked={task.completed}
                 onCheckedChange={() => void onUpdate({ ...task, completed: !task.completed })}
+                disabled={isDeleted}
                 className="mt-1"
                 aria-label={task.completed ? "Marcar como ativa" : "Marcar como concluída"}
               />
               <div className="min-w-0 flex-1">
-                <h3 className={`break-words font-semibold ${task.completed ? "line-through text-muted-foreground" : ""}`}>{task.title}</h3>
+                <h3 className={`break-words font-semibold ${task.completed || isDeleted ? "line-through text-muted-foreground" : ""}`}>{task.title}</h3>
                 {task.description && <p className="mt-1 break-words text-sm text-muted-foreground">{task.description}</p>}
                 <div className="mt-2 flex flex-wrap gap-3 text-xs text-muted-foreground">
                   {dueStatus && <span className={dueStatus.color}><Calendar className="mr-1 inline h-3 w-3" />{dueStatus.text}</span>}
                   {task.estimatedTime != null && <span><Clock className="mr-1 inline h-3 w-3" />{task.estimatedTime} min</span>}
                   {task.category && <span className="rounded bg-secondary px-2 py-0.5">{task.category}</span>}
+                  {isDeleted && <span className="rounded bg-destructive/10 px-2 py-0.5 text-destructive">Na lixeira</span>}
                 </div>
                 {task.tags && task.tags.length > 0 && (
                   <div className="mt-2 flex flex-wrap gap-1">
@@ -88,12 +101,20 @@ export const TaskItem = ({ task, onUpdate, onDelete }: Props) => {
               </div>
             </div>
             <div className="flex shrink-0 gap-1">
-              <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)} aria-label={`Editar ${task.title}`}>
-                <Edit className="h-4 w-4" />
-              </Button>
-              <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setConfirmDelete(true)} aria-label={`Excluir ${task.title}`}>
-                <Trash2 className="h-4 w-4" />
-              </Button>
+              {isDeleted ? (
+                <Button variant="ghost" size="icon" onClick={() => setConfirmRestore(true)} aria-label={`Restaurar ${task.title}`}>
+                  <RotateCcw className="h-4 w-4" />
+                </Button>
+              ) : (
+                <>
+                  <Button variant="ghost" size="icon" onClick={() => setIsEditing(true)} aria-label={`Editar ${task.title}`}>
+                    <Edit className="h-4 w-4" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => setConfirmDelete(true)} aria-label={`Excluir ${task.title}`}>
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </CardContent>
@@ -113,7 +134,7 @@ export const TaskItem = ({ task, onUpdate, onDelete }: Props) => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Confirmar edição?</AlertDialogTitle>
-            <AlertDialogDescription>Tem certeza de que deseja salvar as alterações na tarefa “{task.title}”?</AlertDialogDescription>
+            <AlertDialogDescription>Tem certeza de que deseja salvar as alterações na tarefa "{task.title}"?</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting}>Voltar e revisar</AlertDialogCancel>
@@ -128,12 +149,27 @@ export const TaskItem = ({ task, onUpdate, onDelete }: Props) => {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir tarefa?</AlertDialogTitle>
-            <AlertDialogDescription>Tem certeza de que deseja excluir “{task.title}”? Esta ação não pode ser desfeita.</AlertDialogDescription>
+            <AlertDialogDescription>Tem certeza de que deseja mover "{task.title}" para a lixeira? Você poderá restaurar esta tarefa depois.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
             <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" disabled={isSubmitting} onClick={(event) => { event.preventDefault(); void confirmRemoval(); }}>
               {isSubmitting ? "Excluindo..." : "Sim, excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={confirmRestore} onOpenChange={(open) => { if (!isSubmitting) setConfirmRestore(open); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Restaurar tarefa?</AlertDialogTitle>
+            <AlertDialogDescription>Deseja retornar "{task.title}" para a lista de tarefas ativas?</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isSubmitting}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={isSubmitting} onClick={(event) => { event.preventDefault(); void confirmRestoreTask(); }}>
+              {isSubmitting ? "Restaurando..." : "Sim, restaurar"}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

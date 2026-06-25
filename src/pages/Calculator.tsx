@@ -20,7 +20,6 @@ const Calculator = () => {
 
   const calculate = () => {
     try {
-      // eslint-disable-next-line no-eval
       const evalResult = eval(expression);
       setResult(String(evalResult));
     } catch {

@@ -10,7 +10,14 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 
-type Stats = { total: number; active: number; completed: number; overdue: number; today: number };
+type Stats = {
+  total: number;
+  active: number;
+  completed: number;
+  overdue: number;
+  today: number;
+  deleted: number;
+};
 
 type Props = {
   filter: TaskFilter;
@@ -45,6 +52,7 @@ export function TaskFilters({
             <SelectItem value="completed">Concluídas ({stats.completed})</SelectItem>
             <SelectItem value="overdue">Atrasadas ({stats.overdue})</SelectItem>
             <SelectItem value="today">Para hoje ({stats.today})</SelectItem>
+            <SelectItem value="deleted">Lixeira ({stats.deleted})</SelectItem>
           </SelectContent>
         </Select>
         <Select value={sortBy} onValueChange={(value) => setSortBy(value as Props["sortBy"])}>
@@ -71,11 +79,11 @@ export function TaskFilters({
           <AlertDialogContent>
             <AlertDialogHeader>
               <AlertDialogTitle>Excluir tarefas concluídas?</AlertDialogTitle>
-              <AlertDialogDescription>Tem certeza de que deseja excluir {stats.completed} tarefa(s) concluída(s)? Esta ação não pode ser desfeita.</AlertDialogDescription>
+              <AlertDialogDescription>Tem certeza de que deseja mover {stats.completed} tarefa(s) concluída(s) para a lixeira? Você poderá restaurá-las depois.</AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
               <AlertDialogCancel>Cancelar</AlertDialogCancel>
-              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => void onClearCompleted()}>Sim, excluir todas</AlertDialogAction>
+              <AlertDialogAction className="bg-destructive text-destructive-foreground hover:bg-destructive/90" onClick={() => void onClearCompleted()}>Sim, mover para lixeira</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>

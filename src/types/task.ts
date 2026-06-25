@@ -10,7 +10,8 @@ export interface Task {
   dueDate?: string;
   estimatedTime?: number;
   completed: boolean;
+  deletedAt?: string;
   createdAt: string;
 }
 
-export type NewTask = Omit<Task, "id" | "createdAt">;
+export type NewTask = Omit<Task, "id" | "createdAt" | "deletedAt">;
